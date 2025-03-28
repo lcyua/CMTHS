@@ -34,7 +34,25 @@
         <button onclick="saveData()">저장</button>
     </div>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.9.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.9.1/firebase-firestore.js"></script>
+
     <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyB0Rg2ZJCjCapUl_MGRAyt4KOGgjo7zsUs",
+            authDomain: "cmths-cleaning-data.firebaseapp.com",
+            projectId: "cmths-cleaning-data",
+            storageBucket: "cmths-cleaning-data.firebasestorage.app",
+            messagingSenderId: "218407485606",
+            appId: "1:218407485606:web:baac34099d20cde6aef467",
+            measurementId: "G-X8RPKYX62Y"
+        };
+
+        // Firebase 초기화
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(app);
+
         const students = ["박찬진", "이동현", "정지훈", "정한영", "하현일", "허윤재"];
         const areas = [
             "빗자루, 대걸래, 분리수거", "빗자루, 대걸래, 분리수거", 
@@ -43,20 +61,19 @@
         ];
         const validDays = [1, 3, 5];
         const password = "1214";
-        const storageKey = "cleaningSchedule";
 
         function getKSTDate() {
             const now = new Date();
             return new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000);
         }
-        
+
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [array[i], array[j]] = [array[j], array[i]];
             }
         }
-        
+
         function updateSchedule() {
             const today = getKSTDate();
             const day = today.getDay();
@@ -69,26 +86,34 @@
             
             document.getElementById("message").innerText = "오늘의 청소구역 배정";
             document.getElementById("schedule").classList.remove("hidden");
-            
-            let savedData = JSON.parse(localStorage.getItem(storageKey));
-            const lastUpdate = localStorage.getItem("lastUpdate");
-            const todayString = today.toISOString().split('T')[0];
-            
-            if (!savedData || lastUpdate !== todayString) {
-                shuffleArray(students);
-                savedData = students.map((s, i) => ({ student: s, area: areas[i] }));
-                localStorage.setItem(storageKey, JSON.stringify(savedData));
-                localStorage.setItem("lastUpdate", todayString);
-            }
-            
-            let table = document.getElementById("schedule");
-            table.innerHTML = "<tr><th>학생명</th><th>청소구역</th></tr>" + savedData.map(entry => `<tr><td>${entry.student}</td><td>${entry.area}</td></tr>`).join("");
+
+            // Firestore에서 데이터 가져오기
+            const scheduleRef = db.collection('cleaningSchedule').doc('currentSchedule');
+            scheduleRef.get().then((doc) => {
+                if (doc.exists) {
+                    const savedData = doc.data().schedule;
+                    displaySchedule(savedData);
+                } else {
+                    shuffleArray(students);
+                    const savedData = students.map((s, i) => ({ student: s, area: areas[i] }));
+                    // Firestore에 데이터 저장
+                    scheduleRef.set({
+                        schedule: savedData
+                    });
+                    displaySchedule(savedData);
+                }
+            });
         }
-        
+
+        function displaySchedule(data) {
+            let table = document.getElementById("schedule");
+            table.innerHTML = "<tr><th>학생명</th><th>청소구역</th></tr>" + data.map(entry => `<tr><td>${entry.student}</td><td>${entry.area}</td></tr>`).join("");
+        }
+
         function showLogin() {
             document.getElementById("loginForm").classList.toggle("hidden");
         }
-        
+
         function checkPassword() {
             const input = document.getElementById("password").value;
             if (input === password) {
@@ -99,20 +124,23 @@
                 document.getElementById("loginMessage").innerText = "잘못된 비밀번호입니다.";
             }
         }
-        
+
         function renderAdminInputs() {
-            const savedData = JSON.parse(localStorage.getItem(storageKey)) || students.map((s, i) => ({ student: s, area: areas[i] }));
-            let adminInputs = document.getElementById("adminInputs");
-            adminInputs.innerHTML = "";
-            
-            savedData.forEach((entry, index) => {
-                adminInputs.innerHTML += `<div>
-                    <input type="text" id="student${index}" value="${entry.student}" placeholder="학생명">
-                    <input type="text" id="area${index}" value="${entry.area}" placeholder="청소구역">
-                </div>`;
+            const scheduleRef = db.collection('cleaningSchedule').doc('currentSchedule');
+            scheduleRef.get().then((doc) => {
+                const savedData = doc.exists ? doc.data().schedule : students.map((s, i) => ({ student: s, area: areas[i] }));
+                let adminInputs = document.getElementById("adminInputs");
+                adminInputs.innerHTML = "";
+
+                savedData.forEach((entry, index) => {
+                    adminInputs.innerHTML += `<div>
+                        <input type="text" id="student${index}" value="${entry.student}" placeholder="학생명">
+                        <input type="text" id="area${index}" value="${entry.area}" placeholder="청소구역">
+                    </div>`;
+                });
             });
         }
-        
+
         function saveData() {
             try {
                 let newData = [];
@@ -121,14 +149,18 @@
                     let area = document.getElementById(`area${i}`).value.trim();
                     newData.push({ student, area });
                 }
-                localStorage.setItem(storageKey, JSON.stringify(newData));
-                alert("저장되었습니다.");
-                updateSchedule();
+                const scheduleRef = db.collection('cleaningSchedule').doc('currentSchedule');
+                scheduleRef.set({
+                    schedule: newData
+                }).then(() => {
+                    alert("저장되었습니다.");
+                    updateSchedule();
+                });
             } catch (error) {
                 alert("잘못된 형식입니다.");
             }
         }
-        
+
         updateSchedule();
     </script>
 </body>
