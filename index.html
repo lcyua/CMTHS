@@ -35,23 +35,24 @@
     </div>
 
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.9.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.9.1/firebase-firestore.js"></script>
+    <script type="module">
+        // Firebase SDK import
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
 
-    <script>
+        // Your web app's Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyB0Rg2ZJCjCapUl_MGRAyt4KOGgjo7zsUs",
-            authDomain: "cmths-cleaning-data.firebaseapp.com",
-            projectId: "cmths-cleaning-data",
-            storageBucket: "cmths-cleaning-data.firebasestorage.app",
-            messagingSenderId: "218407485606",
-            appId: "1:218407485606:web:baac34099d20cde6aef467",
-            measurementId: "G-X8RPKYX62Y"
+            apiKey: "AIzaSyAIliMIC7-hQdVhtV_3WdS2rd-oW-OGfUA",
+            authDomain: "cmths-cleaning-schedule.firebaseapp.com",
+            projectId: "cmths-cleaning-schedule",
+            storageBucket: "cmths-cleaning-schedule.firebasestorage.app",
+            messagingSenderId: "962170690781",
+            appId: "1:962170690781:web:ac5db4e777876ff3a10f34"
         };
 
-        // Firebase 초기화
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore(app);
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
         const students = ["박찬진", "이동현", "정지훈", "정한영", "하현일", "허윤재"];
         const areas = [
