@@ -75,8 +75,8 @@
         function displaySchedule() {
             const scheduleDiv = document.getElementById("schedule");
             const isTodayException = (today.getFullYear() === 2025 && today.getMonth() === 2 && today.getDate() === 28); // 3월 28일 예외
-            if (dayOfWeek >= 1 && dayOfWeek <= 3 || isTodayException) { // 월, 화, 수 + 오늘(금요일) 예외
-                const assignments = assignCleaningAreas();
+            if (dayOfWeek >= 1 && dayOfWeek <= 3 || dayOfWeek === 5 || isTodayException) { // 월, 화, 수, 금 + 오늘(금요일) 예외
+                const assignments = getOrAssignCleaningAreas();
                 let table = "<h2>오늘의 청소구역 배정표 (오전 8시)</h2><table><tr><th>학생명</th><th>청소구역</th></tr>";
                 assignments.forEach(([student, area]) => {
                     table += `<tr><td>${student}</td><td>${area}</td></tr>`;
@@ -90,7 +90,36 @@
 
         function assignCleaningAreas() {
             const shuffledStudents = [...students].sort(() => Math.random() - 0.5);
-            return shuffledStudents.map((student, index) => [student, areas[index]]);
+            const assignments = shuffledStudents.map((student, index) => [student, areas[index]]);
+            localStorage.setItem("cleaningAssignments", JSON.stringify(assignments));
+            localStorage.setItem("lastAssignmentDate", today.toISOString());
+            return assignments;
+        }
+
+        function getOrAssignCleaningAreas() {
+            const lastAssignmentDateStr = localStorage.getItem("lastAssignmentDate");
+            const storedAssignments = localStorage.getItem("cleaningAssignments");
+
+            if (!lastAssignmentDateStr || !storedAssignments) {
+                return assignCleaningAreas();
+            }
+
+            const lastAssignmentDate = new Date(lastAssignmentDateStr);
+            const shouldAssignToday = (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) && today.getHours() >= 8;
+
+            if (shouldAssignToday) {
+                const lastAssignmentDay = lastAssignmentDate.getDay();
+                const daysSinceLastAssignment = (today.getDate() - lastAssignmentDate.getDate());
+                const isNewAssignmentDay = (lastAssignmentDay === 5 && (dayOfWeek === 1 || dayOfWeek === 3)) || 
+                                           (lastAssignmentDay === 1 && (dayOfWeek === 3 || dayOfWeek === 5)) || 
+                                           (lastAssignmentDay === 3 && (dayOfWeek === 5 || dayOfWeek === 1));
+
+                if (isNewAssignmentDay || daysSinceLastAssignment >= 2) {
+                    return assignCleaningAreas();
+                }
+            }
+
+            return JSON.parse(storedAssignments);
         }
 
         function showAdminLogin() {
@@ -127,6 +156,7 @@
             }
             areas = newAreas;
             students.splice(0, students.length, ...newStudents);
+            localStorage.removeItem("cleaningAssignments"); // 새로운 학생/구역 반영을 위해 기존 배정 초기화
             alert("변경 사항이 저장되었습니다.");
             closeAdmin();
             displaySchedule();
