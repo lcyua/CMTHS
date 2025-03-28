@@ -3,174 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>청소구역 배정 프로그램</title>
+    <title>청소구역 배정</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { max-width: 800px; margin: auto; }
-        .date { font-size: 24px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .admin-login { cursor: pointer; color: blue; text-decoration: underline; }
-        .admin-panel { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
-        .admin-panel input, .admin-panel button { margin: 5px 0; }
-        .edit-section { margin-top: 10px; }
-        .edit-section input { width: 100%; box-sizing: border-box; margin: 5px 0; }
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .hidden { display: none; }
+        table { width: 60%; margin: 20px auto; border-collapse: collapse; }
+        th, td { border: 1px solid black; padding: 10px; }
+        .login-container { margin-top: 20px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="date" id="todayDate"></div>
-        <div id="schedule"></div>
-        <p class="admin-login" onclick="showAdminLogin()">관리자 로그인</p>
-    </div>
-
-    <div class="admin-panel" id="adminPanel">
-        <h3>관리자 설정</h3>
-        <input type="password" id="adminPassword" placeholder="비밀번호 입력">
-        <button onclick="checkPassword()">확인</button>
-        <div id="adminEdit" style="display: none;">
-            <h4>청소구역 및 학생명 변경</h4>
-            <div class="edit-section">
-                <h5>청소구역</h5>
-                <input type="text" id="area1" placeholder="1. 청소구역">
-                <input type="text" id="area2" placeholder="2. 청소구역">
-                <input type="text" id="area3" placeholder="3. 청소구역">
-                <input type="text" id="area4" placeholder="4. 청소구역">
-                <input type="text" id="area5" placeholder="5. 청소구역">
-                <input type="text" id="area6" placeholder="6. 청소구역">
-            </div>
-            <div class="edit-section">
-                <h5>학생명</h5>
-                <input type="text" id="student1" placeholder="1. 학생명">
-                <input type="text" id="student2" placeholder="2. 학생명">
-                <input type="text" id="student3" placeholder="3. 학생명">
-                <input type="text" id="student4" placeholder="4. 학생명">
-                <input type="text" id="student5" placeholder="5. 학생명">
-                <input type="text" id="student6" placeholder="6. 학생명">
-            </div>
-            <button onclick="saveChanges()">저장</button>
-            <button onclick="closeAdmin()">닫기</button>
+    <h1 id="date"></h1>
+    <p id="message"></p>
+    <table id="schedule" class="hidden">
+        <tr><th>학생명</th><th>청소구역</th></tr>
+    </table>
+    
+    <div class="login-container">
+        <button onclick="showLogin()">관리자 로그인</button>
+        <div id="loginForm" class="hidden">
+            <input type="password" id="password" placeholder="비밀번호 입력">
+            <button onclick="checkPassword()">확인</button>
+            <p id="loginMessage" style="color: red;"></p>
         </div>
+    </div>
+    
+    <div id="adminPanel" class="hidden">
+        <h2>청소구역 수정</h2>
+        <textarea id="adminData" rows="6" cols="50"></textarea><br>
+        <button onclick="saveData()">저장</button>
     </div>
 
     <script>
         const students = ["박찬진", "이동현", "정지훈", "정한영", "하현일", "허윤재"];
-        let areas = [
-            "빗자루, 대걸레, 분리수거",
-            "빗자루, 대걸레, 분리수거",
-            "환기, 빗자루, 대걸레",
-            "손걸레, 세절기",
-            "손걸레, 세절기",
-            "교사쓰레기통, 전체 쓰레기통 정리"
+        const areas = [
+            "빗자루, 대걸래, 분리수거", "빗자루, 대걸래, 분리수거", 
+            "환기, 빗자루, 대걸래", "손걸래, 세절기", 
+            "손걸래, 세절기", "교사쓰레기통, 전체 쓰레기통 정리"
         ];
-
-        const weekdays = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
-        const today = new Date("2025-03-28T00:00:00+09:00"); // KST 기준 2025-03-28 (금요일)
-        const dayOfWeek = today.getDay();
-        const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일 ${weekdays[dayOfWeek]}`;
-
-        document.getElementById("todayDate").textContent = dateStr;
-
-        function displaySchedule() {
-            const scheduleDiv = document.getElementById("schedule");
-            const isTodayException = (today.getFullYear() === 2025 && today.getMonth() === 2 && today.getDate() === 28); // 3월 28일 예외
-            if (dayOfWeek >= 1 && dayOfWeek <= 3 || dayOfWeek === 5 || isTodayException) { // 월, 화, 수, 금 + 오늘(금요일) 예외
-                const assignments = getOrAssignCleaningAreas();
-                let table = "<h2>오늘의 청소구역 배정표 (오전 8시)</h2><table><tr><th>학생명</th><th>청소구역</th></tr>";
-                assignments.forEach(([student, area]) => {
-                    table += `<tr><td>${student}</td><td>${area}</td></tr>`;
-                });
-                table += "</table>";
-                scheduleDiv.innerHTML = table;
-            } else {
-                scheduleDiv.innerHTML = "<p>오늘은 봉사요일이 아닙니다.</p>";
+        const validDays = [1, 3, 5];
+        const password = "1214";
+        const storageKey = "cleaningSchedule";
+        
+        function getKSTDate() {
+            const now = new Date();
+            return new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000);
+        }
+        
+        function updateSchedule() {
+            const today = getKSTDate();
+            const day = today.getDay();
+            document.getElementById("date").innerText = `${today.toLocaleDateString()} (${"일월화수목금토"[day]})`;
+            
+            if (!validDays.includes(day)) {
+                document.getElementById("message").innerText = "오늘은 봉사요일이 아닙니다.";
+                return;
             }
+            
+            document.getElementById("message").innerText = "오늘의 청소구역 배정";
+            document.getElementById("schedule").classList.remove("hidden");
+            
+            let scheduleData = JSON.parse(localStorage.getItem(storageKey)) || students.map((s, i) => ({ student: s, area: areas[i] }));
+            
+            let table = document.getElementById("schedule");
+            table.innerHTML = "<tr><th>학생명</th><th>청소구역</th></tr>" + scheduleData.map(entry => `<tr><td>${entry.student}</td><td>${entry.area}</td></tr>`).join("");
         }
-
-        function assignCleaningAreas() {
-            const shuffledStudents = [...students].sort(() => Math.random() - 0.5);
-            const assignments = shuffledStudents.map((student, index) => [student, areas[index]]);
-            localStorage.setItem("cleaningAssignments", JSON.stringify(assignments));
-            localStorage.setItem("lastAssignmentDate", today.toISOString());
-            return assignments;
+        
+        function showLogin() {
+            document.getElementById("loginForm").classList.toggle("hidden");
         }
-
-        function getOrAssignCleaningAreas() {
-            const lastAssignmentDateStr = localStorage.getItem("lastAssignmentDate");
-            const storedAssignments = localStorage.getItem("cleaningAssignments");
-
-            if (!lastAssignmentDateStr || !storedAssignments) {
-                return assignCleaningAreas();
-            }
-
-            const lastAssignmentDate = new Date(lastAssignmentDateStr);
-            const shouldAssignToday = (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) && today.getHours() >= 8;
-
-            if (shouldAssignToday) {
-                const lastAssignmentDay = lastAssignmentDate.getDay();
-                const daysSinceLastAssignment = (today.getDate() - lastAssignmentDate.getDate());
-                const isNewAssignmentDay = (lastAssignmentDay === 5 && (dayOfWeek === 1 || dayOfWeek === 3)) || 
-                                           (lastAssignmentDay === 1 && (dayOfWeek === 3 || dayOfWeek === 5)) || 
-                                           (lastAssignmentDay === 3 && (dayOfWeek === 5 || dayOfWeek === 1));
-
-                if (isNewAssignmentDay || daysSinceLastAssignment >= 2) {
-                    return assignCleaningAreas();
-                }
-            }
-
-            return JSON.parse(storedAssignments);
-        }
-
-        function showAdminLogin() {
-            document.getElementById("adminPanel").style.display = "block";
-        }
-
+        
         function checkPassword() {
-            const password = document.getElementById("adminPassword").value;
-            if (password === "1214") {
-                document.getElementById("adminPassword").style.display = "none";
-                document.querySelector("button[onclick='checkPassword()']").style.display = "none";
-                document.getElementById("adminEdit").style.display = "block";
-                for (let i = 0; i < 6; i++) {
-                    document.getElementById(`area${i + 1}`).value = areas[i];
-                    document.getElementById(`student${i + 1}`).value = students[i];
-                }
+            const input = document.getElementById("password").value;
+            if (input === password) {
+                document.getElementById("loginMessage").innerText = "";
+                document.getElementById("adminPanel").classList.remove("hidden");
+                document.getElementById("adminData").value = JSON.stringify(JSON.parse(localStorage.getItem(storageKey)) || students.map((s, i) => ({ student: s, area: areas[i] })), null, 2);
             } else {
-                alert("잘못된 비밀번호");
+                document.getElementById("loginMessage").innerText = "잘못된 비밀번호입니다.";
             }
         }
-
-        function saveChanges() {
-            const newAreas = [];
-            const newStudents = [];
-            for (let i = 1; i <= 6; i++) {
-                const area = document.getElementById(`area${i}`).value.trim();
-                const student = document.getElementById(`student${i}`).value.trim();
-                if (!area || !student) {
-                    alert("모든 칸을 채워주세요.");
-                    return;
-                }
-                newAreas.push(area);
-                newStudents.push(student);
+        
+        function saveData() {
+            try {
+                const newData = JSON.parse(document.getElementById("adminData").value);
+                localStorage.setItem(storageKey, JSON.stringify(newData));
+                alert("저장되었습니다.");
+                updateSchedule();
+            } catch (error) {
+                alert("잘못된 형식입니다.");
             }
-            areas = newAreas;
-            students.splice(0, students.length, ...newStudents);
-            localStorage.removeItem("cleaningAssignments"); // 새로운 학생/구역 반영을 위해 기존 배정 초기화
-            alert("변경 사항이 저장되었습니다.");
-            closeAdmin();
-            displaySchedule();
         }
-
-        function closeAdmin() {
-            document.getElementById("adminPanel").style.display = "none";
-            document.getElementById("adminPassword").value = "";
-            document.getElementById("adminEdit").style.display = "none";
-            document.getElementById("adminPassword").style.display = "block";
-            document.querySelector("button[onclick='checkPassword()']").style.display = "block";
-        }
-
-        displaySchedule();
+        
+        updateSchedule();
     </script>
 </body>
 </html>
